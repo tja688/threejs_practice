@@ -65,7 +65,7 @@ function lighting(root) {
   moon.position.set(-11, 15, 9)
   moon.target.position.set(0, 0.5, -0.5)
   moon.castShadow = true
-  moon.shadow.mapSize.set(2048, 2048)
+  moon.shadow.mapSize.set(1024, 1024)
   moon.shadow.camera.left = -15
   moon.shadow.camera.right = 15
   moon.shadow.camera.top = 15

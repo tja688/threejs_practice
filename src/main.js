@@ -2,22 +2,32 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { ToonOutlinePipeline } from './core/pipeline.js'
 import { enableAllLayers } from './core/layers.js'
-import { buildWorld } from './world/index.js'
 import './style.css'
 
 const canvas = document.createElement('canvas')
 document.body.appendChild(canvas)
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+const clearColor = 0x080b16
+const maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
+
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: false,
+  powerPreference: 'high-performance',
+  alpha: false,
+})
+renderer.setClearColor(clearColor, 1)
+renderer.setPixelRatio(maxPixelRatio)
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.NoToneMapping
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFShadowMap
-// The diorama is static, so the shadow map only needs refreshing on the first frames.
 renderer.shadowMap.autoUpdate = false
 renderer.shadowMap.needsUpdate = true
+
+// Paint a solid frame immediately so the tab never looks "stuck loading".
+renderer.clear()
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0x0a1020, 26, 96)
@@ -39,10 +49,8 @@ controls.rotateSpeed = 0.75
 controls.zoomSpeed = 0.8
 controls.update()
 
-const world = buildWorld(scene, camera)
-
 const pipeline = new ToonOutlinePipeline(renderer, scene, camera, {
-  clearColor: 0x080b16,
+  clearColor,
   outlineColor: 0x080c18,
   outlineStrength: 0.9,
   thickness: 1.2,
@@ -57,15 +65,18 @@ function resize() {
   const height = window.innerHeight
   camera.aspect = width / height
   camera.updateProjectionMatrix()
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
   renderer.setSize(width, height)
   pipeline.setSize(width, height)
 }
 window.addEventListener('resize', resize)
 
 const timer = new THREE.Timer()
-timer.connect(document) // freezes while the tab is hidden
-let shadowFrames = 3
+timer.connect(document)
+
+let world = null
+let shadowFrames = 0
+let ready = false
 
 function animate(timestamp) {
   timer.update(timestamp)
@@ -73,19 +84,46 @@ function animate(timestamp) {
   const time = timer.getElapsed()
 
   controls.update()
-  world.update(time, delta)
+  if (world) world.update(time, delta)
 
   if (shadowFrames > 0) {
     renderer.shadowMap.needsUpdate = true
     shadowFrames -= 1
   }
 
-  pipeline.render()
+  if (ready) {
+    pipeline.render()
+  } else {
+    renderer.setRenderTarget(null)
+    renderer.clear()
+  }
 }
 
 renderer.setAnimationLoop(animate)
 
+async function boot() {
+  // Yield to the browser so the first clear() is visible before the heavy build.
+  await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+
+  const { buildWorld } = await import('./world/index.js')
+  world = buildWorld(scene, camera)
+
+  // Smaller first-shadow cost; refresh a couple of frames after geometry lands.
+  scene.traverse((object) => {
+    if (object.isDirectionalLight && object.castShadow && object.shadow?.mapSize) {
+      object.shadow.mapSize.set(1024, 1024)
+    }
+  })
+
+  shadowFrames = 3
+  ready = true
+  renderer.shadowMap.needsUpdate = true
+}
+
+boot().catch((error) => {
+  console.error('[konbini] failed to build scene', error)
+})
+
 if (import.meta.env.DEV) {
-  // Handy for framing shots while working on the scene; stripped from builds.
-  window.__diorama = { scene, camera, controls, renderer, world }
+  window.__diorama = { scene, camera, controls, renderer, get world() { return world } }
 }

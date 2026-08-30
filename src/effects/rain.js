@@ -51,7 +51,7 @@ void main() {
  * Falling rain as animated point sprites. One draw call, no CPU work per frame.
  */
 export function createRain(ctx, options = {}) {
-  const count = options.count ?? 3200
+  const count = options.count ?? 2200
   const spread = options.spread ?? 26
   const top = options.top ?? 13
   const height = options.height ?? 15
