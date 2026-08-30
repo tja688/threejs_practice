@@ -153,15 +153,36 @@ export class ToonOutlinePipeline {
     const pixelRatio = this.renderer.getPixelRatio()
     const w = Math.max(1, Math.floor(width * pixelRatio))
     const h = Math.max(1, Math.floor(height * pixelRatio))
+    // Outline edges are soft; half-res normals keep ink look with far less fill-rate cost.
+    const nw = Math.max(1, Math.floor(w * 0.5))
+    const nh = Math.max(1, Math.floor(h * 0.5))
     this.beautyTarget.setSize(w, h)
-    this.normalTarget.setSize(w, h)
-    this.compositeMaterial.uniforms.uResolution.value.set(w, h)
+    this.normalTarget.setSize(nw, nh)
+    this.compositeMaterial.uniforms.uResolution.value.set(nw, nh)
   }
 
-  render() {
+  /**
+   * @param {{ outlines?: boolean }} [options]
+   * When outlines are disabled, renders the beauty pass straight to the canvas
+   * (used for the first couple of frames so the diorama appears immediately).
+   */
+  render(options = {}) {
+    const outlines = options.outlines !== false
     const { renderer, scene, camera } = this
     const previousClear = renderer.getClearColor(new THREE.Color())
     const previousAlpha = renderer.getClearAlpha()
+
+    renderer.setClearColor(this.clearColor, 1)
+
+    if (!outlines) {
+      camera.layers.enable(EFFECT_LAYER)
+      scene.overrideMaterial = null
+      renderer.setRenderTarget(null)
+      renderer.clear()
+      renderer.render(scene, camera)
+      renderer.setClearColor(previousClear, previousAlpha)
+      return
+    }
 
     camera.layers.disable(EFFECT_LAYER)
     scene.overrideMaterial = this.normalMaterial

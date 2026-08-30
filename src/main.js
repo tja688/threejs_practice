@@ -77,6 +77,7 @@ timer.connect(document)
 let world = null
 let shadowFrames = 0
 let ready = false
+let outlineWarmup = 0
 
 function animate(timestamp) {
   timer.update(timestamp)
@@ -92,7 +93,10 @@ function animate(timestamp) {
   }
 
   if (ready) {
-    pipeline.render()
+    // First frames skip the outline pass so something visible lands ASAP.
+    const outlines = outlineWarmup >= 2
+    if (!outlines) outlineWarmup += 1
+    pipeline.render({ outlines })
   } else {
     renderer.setRenderTarget(null)
     renderer.clear()
