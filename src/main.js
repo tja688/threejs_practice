@@ -9,6 +9,10 @@ document.body.appendChild(canvas)
 
 const clearColor = 0x080b16
 const maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
+const viewSize = () => ({
+  width: Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1),
+  height: Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1),
+})
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -18,21 +22,24 @@ const renderer = new THREE.WebGLRenderer({
 })
 renderer.setClearColor(clearColor, 1)
 renderer.setPixelRatio(maxPixelRatio)
-renderer.setSize(window.innerWidth, window.innerHeight)
+{
+  const { width, height } = viewSize()
+  renderer.setSize(width, height, false)
+}
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.NoToneMapping
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFShadowMap
 renderer.shadowMap.autoUpdate = false
 renderer.shadowMap.needsUpdate = true
+renderer.debug.checkShaderErrors = true
 
-// Paint a solid frame immediately so the tab never looks "stuck loading".
 renderer.clear()
 
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(0x0a1020, 26, 96)
 
-const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.5, 300)
+const camera = new THREE.PerspectiveCamera(32, 1, 0.5, 300)
 camera.position.set(16.5, 12.5, 18.5)
 enableAllLayers(camera)
 
@@ -54,38 +61,37 @@ const pipeline = new ToonOutlinePipeline(renderer, scene, camera, {
   outlineColor: 0x080c18,
   outlineStrength: 0.9,
   thickness: 1.2,
-  depthBias: 0.014,
   normalBias: 0.34,
   vignette: 0.6,
 })
-pipeline.setSize(window.innerWidth, window.innerHeight)
+renderer.debug.onShaderError = () => {
+  pipeline.disableOutlines()
+}
 
 function resize() {
-  const width = window.innerWidth
-  const height = window.innerHeight
+  const { width, height } = viewSize()
   camera.aspect = width / height
   camera.updateProjectionMatrix()
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
-  renderer.setSize(width, height)
+  renderer.setSize(width, height, false)
   pipeline.setSize(width, height)
 }
 window.addEventListener('resize', resize)
-
-const timer = new THREE.Timer()
-timer.connect(document)
+resize()
 
 let world = null
 let shadowFrames = 0
 let ready = false
 let outlineWarmup = 0
+let elapsed = 0
 
 function animate(timestamp) {
-  timer.update(timestamp)
-  const delta = Math.min(timer.getDelta(), 0.1)
-  const time = timer.getElapsed()
+  const seconds = timestamp * 0.001
+  const delta = Math.min(Math.max(seconds - elapsed, 0), 0.1)
+  elapsed = seconds
 
   controls.update()
-  if (world) world.update(time, delta)
+  if (world) world.update(seconds, delta)
 
   if (shadowFrames > 0) {
     renderer.shadowMap.needsUpdate = true
@@ -93,7 +99,6 @@ function animate(timestamp) {
   }
 
   if (ready) {
-    // First frames skip the outline pass so something visible lands ASAP.
     const outlines = outlineWarmup >= 2
     if (!outlines) outlineWarmup += 1
     pipeline.render({ outlines })
@@ -106,13 +111,11 @@ function animate(timestamp) {
 renderer.setAnimationLoop(animate)
 
 async function boot() {
-  // Yield to the browser so the first clear() is visible before the heavy build.
   await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
 
   const { buildWorld } = await import('./world/index.js')
   world = buildWorld(scene, camera)
 
-  // Smaller first-shadow cost; refresh a couple of frames after geometry lands.
   scene.traverse((object) => {
     if (object.isDirectionalLight && object.castShadow && object.shadow?.mapSize) {
       object.shadow.mapSize.set(1024, 1024)

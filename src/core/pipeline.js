@@ -1,62 +1,39 @@
 import * as THREE from 'three'
+import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js'
 import { EFFECT_LAYER } from './layers.js'
 
 /**
- * Two-buffer cel pipeline.
+ * Cel pipeline that cannot wipe the scene to white.
  *
- *  1. normal + depth pass  : the scene rendered with MeshNormalMaterial,
- *                            effects layer excluded.
- *  2. beauty pass          : the scene as-is.
- *  3. composite            : sobel-ish edge detection over depth + normals gives
- *                            a clean ink outline, plus a soft vignette.
+ *  1. Beauty is always drawn straight to the canvas (the thing you look at).
+ *  2. A half-res normal pass feeds a transparent overlay that only darkens
+ *     detected edges. If that shader/FBO fails, the diorama is still visible.
+ *
+ * Depth textures are intentionally unused: an incomplete depth FBO is a
+ * common reason a fullscreen blit samples the default white texture.
  */
 
-const compositeVertex = /* glsl */ `
+const overlayVertex = /* glsl */ `
 varying vec2 vUv;
 void main() {
   vUv = uv;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
+  gl_Position = vec4(position.xy, 1.0, 1.0);
 }
 `
 
-const compositeFragment = /* glsl */ `
-#include <packing>
-
-uniform sampler2D tDiffuse;
+const overlayFragment = /* glsl */ `
 uniform sampler2D tNormal;
-uniform sampler2D tDepth;
 uniform vec2 uResolution;
-uniform float uNear;
-uniform float uFar;
 uniform vec3 uOutlineColor;
 uniform float uOutlineStrength;
 uniform float uThickness;
-uniform float uDepthBias;
 uniform float uNormalBias;
 uniform float uVignette;
-uniform float toneMappingExposure;
 
 varying vec2 vUv;
 
-float linearDepth(vec2 uv) {
-  float z = texture2D(tDepth, uv).x;
-  if (z >= 1.0) return 1.0;
-  float viewZ = perspectiveDepthToViewZ(z, uNear, uFar);
-  return viewZToOrthographicDepth(viewZ, uNear, uFar);
-}
-
 void main() {
-  vec4 base = texture2D(tDiffuse, vUv);
-  vec2 texel = uThickness / uResolution;
-
-  float d0 = linearDepth(vUv);
-  float dx1 = linearDepth(vUv + vec2(texel.x, 0.0));
-  float dx2 = linearDepth(vUv - vec2(texel.x, 0.0));
-  float dy1 = linearDepth(vUv + vec2(0.0, texel.y));
-  float dy2 = linearDepth(vUv - vec2(0.0, texel.y));
-  float depthDelta = abs(dx1 - d0) + abs(dx2 - d0) + abs(dy1 - d0) + abs(dy2 - d0);
-  float relative = depthDelta / max(d0, 0.02);
-  float depthEdge = smoothstep(uDepthBias, uDepthBias * 3.0, relative);
+  vec2 texel = uThickness / max(uResolution, vec2(1.0));
 
   vec3 n0 = texture2D(tNormal, vUv).rgb;
   vec3 nx1 = texture2D(tNormal, vUv + vec2(texel.x, 0.0)).rgb;
@@ -64,22 +41,19 @@ void main() {
   vec3 ny1 = texture2D(tNormal, vUv + vec2(0.0, texel.y)).rgb;
   vec3 ny2 = texture2D(tNormal, vUv - vec2(0.0, texel.y)).rgb;
   float normalDelta = length(nx1 - n0) + length(nx2 - n0) + length(ny1 - n0) + length(ny2 - n0);
-  float normalEdge = smoothstep(uNormalBias, uNormalBias * 2.4, normalDelta);
-  normalEdge *= step(d0, 0.999);
-
-  float edge = clamp(max(depthEdge, normalEdge * 0.85), 0.0, 1.0) * uOutlineStrength;
-
-  vec3 color = base.rgb;
-  vec3 ink = mix(uOutlineColor, color * 0.3, 0.22);
-  color = mix(color, ink, edge);
+  float empty = step(length(n0), 0.001);
+  float edge = smoothstep(uNormalBias, uNormalBias * 2.4, normalDelta);
+  edge *= 1.0 - empty;
+  edge = clamp(edge * uOutlineStrength, 0.0, 1.0);
 
   vec2 centered = vUv - 0.5;
-  color *= 1.0 - dot(centered, centered) * uVignette;
+  float vignette = dot(centered, centered) * uVignette;
 
-  gl_FragColor = vec4(color, 1.0);
-
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
+  // Premultiplied dark ink + slight vignette. Alpha 0 where there is no edge
+  // so a broken draw cannot replace the scene with white.
+  vec3 ink = uOutlineColor;
+  float alpha = max(edge, vignette * 0.35);
+  gl_FragColor = vec4(ink * alpha, alpha);
 }
 `
 
@@ -89,98 +63,77 @@ export class ToonOutlinePipeline {
     this.scene = scene
     this.camera = camera
     this.clearColor = new THREE.Color(options.clearColor ?? 0x05070f)
+    this.enabled = true
 
     this.normalMaterial = new THREE.MeshNormalMaterial()
     this.normalClearColor = new THREE.Color(0x000000)
 
     const size = renderer.getDrawingBufferSize(new THREE.Vector2())
+    const width = Math.max(1, size.x)
+    const height = Math.max(1, size.y)
 
-    this.beautyTarget = new THREE.WebGLRenderTarget(size.x, size.y, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      type: THREE.UnsignedByteType,
-      depthBuffer: true,
-      stencilBuffer: false,
-    })
-    this.beautyTarget.texture.colorSpace = THREE.LinearSRGBColorSpace
-
-    const depthTexture = new THREE.DepthTexture(size.x, size.y)
-    depthTexture.format = THREE.DepthFormat
-    depthTexture.type = THREE.UnsignedIntType
-    depthTexture.minFilter = THREE.NearestFilter
-    depthTexture.magFilter = THREE.NearestFilter
-
-    this.normalTarget = new THREE.WebGLRenderTarget(size.x, size.y, {
+    this.normalTarget = new THREE.WebGLRenderTarget(width, height, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
       type: THREE.UnsignedByteType,
       depthBuffer: true,
       stencilBuffer: false,
-      depthTexture,
     })
-    this.normalTarget.texture.colorSpace = THREE.LinearSRGBColorSpace
+    this.normalTarget.texture.colorSpace = THREE.NoColorSpace
 
-    this.compositeMaterial = new THREE.ShaderMaterial({
-      vertexShader: compositeVertex,
-      fragmentShader: compositeFragment,
-      depthTest: false,
-      depthWrite: false,
+    this.overlayMaterial = new THREE.ShaderMaterial({
+      vertexShader: overlayVertex,
+      fragmentShader: overlayFragment,
       uniforms: {
-        tDiffuse: { value: this.beautyTarget.texture },
         tNormal: { value: this.normalTarget.texture },
-        tDepth: { value: depthTexture },
-        uResolution: { value: new THREE.Vector2(size.x, size.y) },
-        uNear: { value: camera.near },
-        uFar: { value: camera.far },
+        uResolution: { value: new THREE.Vector2(width, height) },
         uOutlineColor: { value: new THREE.Color(options.outlineColor ?? 0x0a0e1c) },
         uOutlineStrength: { value: options.outlineStrength ?? 0.92 },
         uThickness: { value: options.thickness ?? 1.15 },
-        uDepthBias: { value: options.depthBias ?? 0.012 },
         uNormalBias: { value: options.normalBias ?? 0.32 },
         uVignette: { value: options.vignette ?? 0.55 },
-        toneMappingExposure: { value: renderer.toneMappingExposure },
       },
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+      blending: THREE.NormalBlending,
+      premultipliedAlpha: true,
     })
 
-    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.compositeMaterial)
-    this.quad.frustumCulled = false
-    this.quadScene = new THREE.Scene()
-    this.quadScene.add(this.quad)
-    this.quadCamera = new THREE.Camera()
+    this.quad = new FullScreenQuad(this.overlayMaterial)
   }
 
   setSize(width, height) {
     const pixelRatio = this.renderer.getPixelRatio()
-    const w = Math.max(1, Math.floor(width * pixelRatio))
-    const h = Math.max(1, Math.floor(height * pixelRatio))
-    // Outline edges are soft; half-res normals keep ink look with far less fill-rate cost.
+    const w = Math.max(1, Math.floor(Math.max(width, 1) * pixelRatio))
+    const h = Math.max(1, Math.floor(Math.max(height, 1) * pixelRatio))
     const nw = Math.max(1, Math.floor(w * 0.5))
     const nh = Math.max(1, Math.floor(h * 0.5))
-    this.beautyTarget.setSize(w, h)
     this.normalTarget.setSize(nw, nh)
-    this.compositeMaterial.uniforms.uResolution.value.set(nw, nh)
+    this.overlayMaterial.uniforms.uResolution.value.set(nw, nh)
   }
 
   /**
    * @param {{ outlines?: boolean }} [options]
-   * When outlines are disabled, renders the beauty pass straight to the canvas
-   * (used for the first couple of frames so the diorama appears immediately).
    */
   render(options = {}) {
-    const outlines = options.outlines !== false
+    const outlines = options.outlines !== false && this.enabled
     const { renderer, scene, camera } = this
-    const previousClear = renderer.getClearColor(new THREE.Color())
-    const previousAlpha = renderer.getClearAlpha()
+    const previousAutoClear = renderer.autoClear
+    const previousTarget = renderer.getRenderTarget()
 
+    camera.layers.enable(EFFECT_LAYER)
+    scene.overrideMaterial = null
     renderer.setClearColor(this.clearColor, 1)
+    renderer.setRenderTarget(null)
+    renderer.autoClear = true
+    renderer.clear()
+    renderer.render(scene, camera)
 
     if (!outlines) {
-      camera.layers.enable(EFFECT_LAYER)
-      scene.overrideMaterial = null
-      renderer.setRenderTarget(null)
-      renderer.clear()
-      renderer.render(scene, camera)
-      renderer.setClearColor(previousClear, previousAlpha)
+      renderer.autoClear = previousAutoClear
+      renderer.setRenderTarget(previousTarget)
       return
     }
 
@@ -193,26 +146,23 @@ export class ToonOutlinePipeline {
 
     scene.overrideMaterial = null
     camera.layers.enable(EFFECT_LAYER)
-    renderer.setClearColor(this.clearColor, 1)
-    renderer.setRenderTarget(this.beautyTarget)
-    renderer.clear()
-    renderer.render(scene, camera)
-
-    this.compositeMaterial.uniforms.uNear.value = camera.near
-    this.compositeMaterial.uniforms.uFar.value = camera.far
-    this.compositeMaterial.uniforms.toneMappingExposure.value = renderer.toneMappingExposure
 
     renderer.setRenderTarget(null)
-    renderer.render(this.quadScene, this.quadCamera)
+    renderer.autoClear = false
+    this.quad.render(renderer)
 
-    renderer.setClearColor(previousClear, previousAlpha)
+    renderer.autoClear = previousAutoClear
+    renderer.setRenderTarget(previousTarget)
+  }
+
+  disableOutlines() {
+    this.enabled = false
   }
 
   dispose() {
-    this.beautyTarget.dispose()
     this.normalTarget.dispose()
-    this.compositeMaterial.dispose()
-    this.quad.geometry.dispose()
+    this.overlayMaterial.dispose()
+    this.quad.dispose()
     this.normalMaterial.dispose()
   }
 }
