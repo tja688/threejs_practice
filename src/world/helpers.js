@@ -26,15 +26,6 @@ export function cylinder(radiusTop, radiusBottom, height, material, segments = 1
   return mesh
 }
 
-/** Flat quad lying on the ground at height y. */
-export function quadXZ(width, depth, material, y = 0) {
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material)
-  mesh.rotation.x = -Math.PI / 2
-  mesh.position.y = y
-  mesh.receiveShadow = true
-  return mesh
-}
-
 /** Extrude a 2D shape (x, z) upward into a slab whose top sits at `height`. */
 export function slab(shape, height, material) {
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false })
@@ -52,12 +43,6 @@ export function group(name, children = []) {
   g.name = name
   children.forEach((child) => child && g.add(child))
   return g
-}
-
-export function place(object, x, y, z, rotationY = 0) {
-  object.position.set(x, y, z)
-  object.rotation.y = rotationY
-  return object
 }
 
 /** Deterministic pseudo random, so the scene is identical on every reload. */

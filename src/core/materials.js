@@ -246,10 +246,3 @@ export function rainStreakTexture() {
     ctx.fillRect(w * 0.45, 0, w * 0.1, h)
   })
 }
-
-export function disposeMaterialCaches() {
-  cache.forEach((material) => material.dispose())
-  cache.clear()
-  textureCache.forEach((texture) => texture.dispose())
-  textureCache.clear()
-}

@@ -36,6 +36,18 @@ function shell() {
   g.add(boxBetween(S.maxX - 0.16, S.maxX, FLOOR - 0.36, GLASS_BOTTOM, -1.15, S.maxZ, trim))
   g.add(boxBetween(S.maxX - 0.16, S.maxX, GLASS_TOP, TOP, -1.15, S.maxZ, wall))
 
+  // Brand stripe and small light boxes on the band above the glazing.
+  g.add(boxBetween(S.minX, S.maxX, GLASS_TOP + 0.42, GLASS_TOP + 0.5, S.maxZ, S.maxZ + 0.02, unlit(PALETTE.brandGreen)))
+  g.add(boxBetween(S.maxX, S.maxX + 0.02, GLASS_TOP + 0.42, GLASS_TOP + 0.5, -1.15, S.maxZ, unlit(PALETTE.brandGreen)))
+  for (let i = 0; i < 3; i += 1) {
+    const x = -2.6 + i * 1.35
+    g.add(boxBetween(x, x + 0.6, GLASS_TOP + 0.12, GLASS_TOP + 0.36, S.maxZ, S.maxZ + 0.03, unlit(0xfff3dc)))
+  }
+  for (let i = 0; i < 2; i += 1) {
+    const z = -0.7 + i * 1.2
+    g.add(boxBetween(S.maxX, S.maxX + 0.03, GLASS_TOP + 0.12, GLASS_TOP + 0.36, z, z + 0.55, unlit(0xfff3dc)))
+  }
+
   // Roof deck, parapet and a service door on the back wall.
   g.add(boxBetween(S.minX, S.maxX, TOP, TOP + 0.14, S.minZ, S.maxZ, toon(PALETTE.roofDeck)))
   const p = 0.14
@@ -46,6 +58,22 @@ function shell() {
 
   const backDoor = boxBetween(-2.6, -1.7, FLOOR, FLOOR + 2.0, S.minZ - 0.06, S.minZ, toon(PALETTE.metalDark))
   g.add(backDoor)
+
+  // Side elevation: downpipe, meter box, condenser and a hanging banner.
+  const pipe = cylinder(0.055, 0.055, TOP - LAYOUT.curbHeight, toon(PALETTE.metalDark), 8)
+  pipe.position.set(S.maxX + 0.07, LAYOUT.curbHeight + (TOP - LAYOUT.curbHeight) / 2, S.minZ + 0.35)
+  g.add(pipe)
+  g.add(box(0.14, 0.46, 0.34, toon(PALETTE.metal), [S.maxX + 0.09, FLOOR + 1.55, -2.95]))
+  const condenser = group('side-ac')
+  condenser.add(box(0.36, 0.52, 0.74, toon(PALETTE.metal), [0, 0, 0]))
+  condenser.add(box(0.04, 0.34, 0.34, toon(PALETTE.metalDark), [0.19, 0, 0]))
+  condenser.position.set(S.maxX + 0.2, FLOOR + 0.9, -2.2)
+  g.add(condenser)
+  const banner = boxBetween(S.maxX + 0.02, S.maxX + 0.06, FLOOR + 1.1, FLOOR + 2.3, -1.75, -1.35, unlit(0xf2f6fb))
+  banner.castShadow = false
+  g.add(banner)
+  g.add(boxBetween(S.maxX + 0.01, S.maxX + 0.07, FLOOR + 1.75, FLOOR + 1.95, -1.72, -1.38, unlit(PALETTE.brandOrange)))
+  g.add(boxBetween(S.maxX + 0.01, S.maxX + 0.07, FLOOR + 1.35, FLOOR + 1.55, -1.72, -1.38, unlit(PALETTE.brandGreen)))
 
   // Rooftop plant.
   for (let i = 0; i < 2; i += 1) {
@@ -408,5 +436,3 @@ export function buildStore(ctx) {
   g.add(lightSpill())
   return g
 }
-
-export const STORE_METRICS = { FLOOR, TOP, PARAPET, GLASS_BOTTOM, GLASS_TOP, DOOR_HALF, DOOR_TOP }

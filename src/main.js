@@ -14,7 +14,7 @@ renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.NoToneMapping
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.shadowMap.type = THREE.PCFShadowMap
 // The diorama is static, so the shadow map only needs refreshing on the first frames.
 renderer.shadowMap.autoUpdate = false
 renderer.shadowMap.needsUpdate = true
@@ -63,12 +63,14 @@ function resize() {
 }
 window.addEventListener('resize', resize)
 
-const clock = new THREE.Clock()
+const timer = new THREE.Timer()
+timer.connect(document) // freezes while the tab is hidden
 let shadowFrames = 3
 
-function animate() {
-  const delta = Math.min(clock.getDelta(), 0.1)
-  const time = clock.getElapsedTime()
+function animate(timestamp) {
+  timer.update(timestamp)
+  const delta = Math.min(timer.getDelta(), 0.1)
+  const time = timer.getElapsed()
 
   controls.update()
   world.update(time, delta)

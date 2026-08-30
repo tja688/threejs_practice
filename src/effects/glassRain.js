@@ -39,16 +39,16 @@ void main() {
 
   // Beaded head with a thin trail left behind it.
   float dy = vUv.y - dropY;
-  float head = exp(-pow((dy) / 0.012, 2.0));
-  float trail = step(0.0, dy) * exp(-dy * 7.0) * 0.35;
+  float head = exp(-pow((dy) / 0.022, 2.0));
+  float trail = step(0.0, dy) * exp(-dy * 5.0) * 0.5;
 
   float lateral = 0.5 + (hash11(cx + 3.7) - 0.5) * 0.55;
-  float band = exp(-pow((fx - lateral) / 0.16, 2.0));
+  float band = exp(-pow((fx - lateral) / 0.22, 2.0));
 
   float streak = (head + trail) * band;
 
   // Static condensation speckle so the glass never looks dry.
-  float speckle = step(0.982, hash11(floor(vUv.x * 160.0) + floor(vUv.y * 220.0) * 31.0)) * 0.5;
+  float speckle = step(0.975, hash11(floor(vUv.x * 140.0) + floor(vUv.y * 190.0) * 31.0)) * 0.7;
 
   float alpha = clamp(streak + speckle, 0.0, 1.0) * uOpacity;
   if (alpha < 0.005) discard;
@@ -64,7 +64,7 @@ function sheet(width, height, columns) {
       uTime: { value: 0 },
       uColumns: { value: columns },
       uColor: { value: new THREE.Color(0xdff0ff) },
-      uOpacity: { value: 0.5 },
+      uOpacity: { value: 0.75 },
     },
     transparent: true,
     depthWrite: false,
@@ -84,11 +84,11 @@ export function createGlassRain(ctx) {
   const top = S.floor + 2.28
   const height = top - bottom
 
-  const front = sheet(S.maxX - S.minX - 0.4, height, 22)
+  const front = sheet(S.maxX - S.minX - 0.4, height, 15)
   front.position.set((S.minX + S.maxX) / 2, (bottom + top) / 2, S.maxZ + 0.015)
   g.add(front)
 
-  const side = sheet(2.3, height, 12)
+  const side = sheet(2.3, height, 9)
   side.rotation.y = Math.PI / 2
   side.position.set(S.maxX + 0.015, (bottom + top) / 2, 0.2)
   g.add(side)
