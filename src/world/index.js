@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PALETTE } from '../core/palette.js'
 import { markAsEffect } from '../core/layers.js'
+import { mergeStatic } from '../core/optimize.js'
 import { buildBase } from './base.js'
 import { buildStore } from './store.js'
 import { buildInterior } from './interior.js'
@@ -115,6 +116,7 @@ export function buildWorld(scene, camera) {
   root.add(createGlassRain(ctx))
   root.add(createWetGround(ctx))
 
+  mergeStatic(root)
   scene.add(root)
 
   return {

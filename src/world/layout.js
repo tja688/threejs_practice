@@ -25,7 +25,7 @@ export const LAYOUT = {
 
   alley: { minX: -4.95, maxX: -3.4, minZ: -8.6, maxZ: 1.4 },
 
-  neighbor: { minX: -10.4, maxX: -4.95, minZ: -10.4, maxZ: -1.7, height: 5.4 },
+  neighbor: { minX: -10.4, maxX: -4.95, minZ: -10.4, maxZ: -1.7, height: 4.7 },
 
   backBuilding: { minX: -3.4, maxX: 1.4, minZ: -10.4, maxZ: -5.1, height: 4.3 },
 

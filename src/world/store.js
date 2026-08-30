@@ -37,7 +37,7 @@ function shell() {
   g.add(boxBetween(S.maxX - 0.16, S.maxX, GLASS_TOP, TOP, -1.15, S.maxZ, wall))
 
   // Roof deck, parapet and a service door on the back wall.
-  g.add(boxBetween(S.minX, S.maxX, TOP, TOP + 0.14, S.minZ, S.maxZ, wallShade))
+  g.add(boxBetween(S.minX, S.maxX, TOP, TOP + 0.14, S.minZ, S.maxZ, toon(PALETTE.roofDeck)))
   const p = 0.14
   g.add(boxBetween(S.minX, S.maxX, TOP, PARAPET, S.maxZ - p, S.maxZ, wall))
   g.add(boxBetween(S.minX, S.maxX, TOP, PARAPET, S.minZ, S.minZ + p, wall))
@@ -126,6 +126,7 @@ function automaticDoor(ctx) {
     // A single mid rail with the usual warning sticker.
     panel.add(boxBetween(-w / 2, w / 2, -0.02, 0.03, -0.02, 0.02, unlit(PALETTE.brandOrange)))
     panel.position.set(dir * (w / 2), FLOOR + 0.02 + h / 2, S.maxZ - 0.09)
+    panel.userData.dynamic = true
     return { panel, dir, closedX: dir * (w / 2), openX: dir * (w / 2 + w - 0.02) }
   })
   panels.forEach(({ panel }) => g.add(panel))
@@ -313,7 +314,7 @@ function poleSign(ctx) {
     g.add(box(0.19, 0.42, 0.2, unlit(PALETTE.brandGreen), [0, LAYOUT.curbHeight + 3.5, -0.32 + i * 0.32]))
   }
 
-  const glow = makeGlow(0xffeec8, 3.2, 0.4)
+  const glow = makeGlow(0xffeec8, 1.9, 0.42)
   glow.position.set(0, LAYOUT.curbHeight + 3.2, 0)
   markAsEffect(glow)
   g.add(glow)
@@ -326,6 +327,48 @@ function poleSign(ctx) {
 
   g.position.set(2.32, 0, 0.5)
   ctx.addReflection({ x: 2.6, z: 0.5, color: 0xffeec8, strength: 0.6, radius: 1.8 })
+  return g
+}
+
+/**
+ * The pool of warm light the shop throws onto the wet pavement.
+ * Painted in rather than lit, so it stays clean and cheap.
+ */
+function lightSpill() {
+  const g = group('light-spill')
+  const y = LAYOUT.curbHeight + 0.05
+
+  const front = makeGlowPlane(0xffd6a0, 6.6, 3.4, 0.62)
+  front.rotation.x = -Math.PI / 2
+  front.position.set((S.minX + S.maxX) / 2 + 0.1, y, S.maxZ + 1.15)
+  g.add(front)
+
+  const side = makeGlowPlane(0xffd6a0, 3.2, 4.6, 0.42)
+  side.rotation.x = -Math.PI / 2
+  side.position.set(S.maxX + 1.1, y, 0.1)
+  g.add(side)
+
+  const doorway = makeGlowPlane(0xffe3ba, 3.0, 3.0, 0.5)
+  doorway.rotation.x = -Math.PI / 2
+  doorway.position.set(0, y + 0.005, S.maxZ + 1.0)
+  g.add(doorway)
+
+  // Glare on the glazing plus a hazy halo, so the shop glows like a lantern.
+  const glareFront = makeGlowPlane(0xffdcac, 5.6, 3.0, 0.13)
+  glareFront.position.set((S.minX + S.maxX) / 2, FLOOR + 1.25, S.maxZ + 0.06)
+  const glareSide = makeGlowPlane(0xffdcac, 3.4, 3.0, 0.1)
+  glareSide.rotation.y = Math.PI / 2
+  glareSide.position.set(S.maxX + 0.06, FLOOR + 1.25, 0.15)
+  g.add(glareFront, glareSide)
+
+  const hazeFront = makeGlowPlane(0xffcf94, 11.0, 7.0, 0.06)
+  hazeFront.position.set((S.minX + S.maxX) / 2, FLOOR + 1.9, S.maxZ + 1.9)
+  const hazeSide = makeGlowPlane(0xffcf94, 8.0, 7.0, 0.05)
+  hazeSide.rotation.y = Math.PI / 2
+  hazeSide.position.set(S.maxX + 1.9, FLOOR + 1.9, 0.1)
+  g.add(hazeFront, hazeSide)
+
+  markAsEffect(g)
   return g
 }
 
@@ -362,6 +405,7 @@ export function buildStore(ctx) {
   g.add(signBand(ctx))
   g.add(poleSign(ctx))
   g.add(windowGraphics())
+  g.add(lightSpill())
   return g
 }
 

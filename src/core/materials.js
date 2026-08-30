@@ -239,11 +239,11 @@ export function rainStreakTexture() {
     ctx.clearRect(0, 0, w, h)
     const gradient = ctx.createLinearGradient(0, 0, 0, h)
     gradient.addColorStop(0, 'rgba(255,255,255,0)')
-    gradient.addColorStop(0.35, 'rgba(210,235,255,0.75)')
-    gradient.addColorStop(0.75, 'rgba(255,255,255,0.95)')
+    gradient.addColorStop(0.45, 'rgba(210,235,255,0.5)')
+    gradient.addColorStop(0.82, 'rgba(255,255,255,0.9)')
     gradient.addColorStop(1, 'rgba(255,255,255,0)')
     ctx.fillStyle = gradient
-    ctx.fillRect(w * 0.42, 0, w * 0.16, h)
+    ctx.fillRect(w * 0.45, 0, w * 0.1, h)
   })
 }
 

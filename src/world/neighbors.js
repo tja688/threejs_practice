@@ -69,6 +69,34 @@ function neighborBuilding() {
     }
   }
 
+  // Rooftop clutter: tank, aerials and a laundry pole.
+  const tank = box(1.1, 0.8, 1.0, toon(0x8f99b3), [N.minX + 1.6, N.height + 0.7, -6.4])
+  g.add(tank)
+  ;[
+    [N.minX + 1.6, -6.4],
+    [N.minX + 1.62, -6.4],
+  ].forEach(([x, z], i) => {
+    const leg = cylinder(0.06, 0.06, 0.4, toon(PALETTE.metalDark), 6)
+    leg.position.set(x + i * 0.6, N.height + 0.2, z)
+    g.add(leg)
+  })
+  const aerial = cylinder(0.03, 0.03, 1.6, toon(PALETTE.metalDark), 6)
+  aerial.position.set(N.maxX - 1.2, N.height + 1.1, -3.4)
+  g.add(aerial)
+  for (let i = 0; i < 3; i += 1) {
+    const cross = box(0.6, 0.03, 0.03, toon(PALETTE.metalDark), [N.maxX - 1.2, N.height + 0.9 + i * 0.28, -3.4])
+    g.add(cross)
+  }
+  ;[-1, 1].forEach((side) => {
+    const post = cylinder(0.045, 0.045, 0.9, toon(PALETTE.metal), 6)
+    post.position.set(N.minX + 3.4, N.height + 0.75, -8.4 + side * 1.1)
+    g.add(post)
+  })
+  const rail = cylinder(0.025, 0.025, 2.2, toon(PALETTE.metal), 6)
+  rail.rotation.x = Math.PI / 2
+  rail.position.set(N.minX + 3.4, N.height + 1.15, -8.4)
+  g.add(rail)
+
   // Alley-facing side: pipes, meter box, air conditioners.
   const pipe = cylinder(0.07, 0.07, N.height - 0.4, toon(PALETTE.metalDark), 8)
   pipe.position.set(N.maxX + 0.1, (N.height - 0.4) / 2, -3.0)

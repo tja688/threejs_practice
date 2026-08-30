@@ -26,7 +26,15 @@ const random = makeRandom(20240816)
 function shellAndLight(ctx) {
   const g = group('interior-shell')
 
-  const floor = boxBetween(IN.minX, IN.maxX, IN.floor - 0.02, IN.floor, IN.minZ, IN.maxZ, toon(PALETTE.floorIndoor))
+  const floor = boxBetween(
+    IN.minX,
+    IN.maxX,
+    IN.floor - 0.02,
+    IN.floor,
+    IN.minZ,
+    IN.maxZ,
+    toon(PALETTE.floorIndoor, { emissive: 0x4a3a22, emissiveIntensity: 0.55 }),
+  )
   floor.castShadow = false
   g.add(floor)
 
@@ -35,7 +43,15 @@ function shellAndLight(ctx) {
   guide.castShadow = false
   g.add(guide)
 
-  const ceiling = boxBetween(IN.minX, IN.maxX, IN.ceiling, IN.ceiling + 0.1, IN.minZ, IN.maxZ, toon(PALETTE.ceiling))
+  const ceiling = boxBetween(
+    IN.minX,
+    IN.maxX,
+    IN.ceiling,
+    IN.ceiling + 0.1,
+    IN.minZ,
+    IN.maxZ,
+    toon(PALETTE.ceiling, { emissive: 0x5a4526, emissiveIntensity: 0.6 }),
+  )
   ceiling.castShadow = false
   g.add(ceiling)
 
@@ -53,9 +69,9 @@ function shellAndLight(ctx) {
     g.add(halo)
   }
 
-  const lightA = new THREE.PointLight(PALETTE.interiorWarm, 9, 7.5, 2)
+  const lightA = new THREE.PointLight(PALETTE.interiorWarm, 24, 9, 2)
   lightA.position.set(-1.7, IN.ceiling - 0.35, -1.4)
-  const lightB = new THREE.PointLight(0xfff0dc, 9, 7.5, 2)
+  const lightB = new THREE.PointLight(0xfff0dc, 22, 9, 2)
   lightB.position.set(0.2, IN.ceiling - 0.35, 0.55)
   g.add(lightA, lightB)
   ctx.interiorLights = [lightA, lightB]
@@ -194,7 +210,7 @@ function bentoCase() {
 /** Two gondola runs of snacks and instant noodles down the middle. */
 function gondolaShelves() {
   const g = group('shelves')
-  const frame = toon(PALETTE.shelf)
+  const frame = toon(PALETTE.shelf, { emissive: 0x2e2517, emissiveIntensity: 0.5 })
   const foot = toon(PALETTE.shelfDark)
 
   const rows = [
@@ -366,6 +382,50 @@ function magazineRack() {
   return g
 }
 
+/** Eat-in counter facing the side window, with a couple of stools. */
+function eatInCounter() {
+  const g = group('eat-in')
+  const top = toon(PALETTE.wood, { emissive: 0x3a2a14, emissiveIntensity: 0.4 })
+  const metal = toon(PALETTE.metal)
+  const x1 = IN.maxX
+  const x0 = x1 - 0.42
+  const z0 = -0.2
+  const z1 = 1.05
+  const y = IN.floor + 0.98
+
+  g.add(boxBetween(x0, x1, y - 0.06, y, z0, z1, top))
+  ;[z0 + 0.15, z1 - 0.15].forEach((z) => {
+    const leg = boxBetween(x1 - 0.1, x1 - 0.05, IN.floor, y - 0.06, z - 0.03, z + 0.03, metal)
+    g.add(leg)
+  })
+  // Modesty panel with a strip of counter lighting above.
+  g.add(boxBetween(x1 - 0.06, x1 - 0.02, y, y + 0.5, z0, z1, toon(PALETTE.shelf)))
+  const strip = boxBetween(x1 - 0.1, x1 - 0.04, y + 0.52, y + 0.56, z0 + 0.05, z1 - 0.05, unlit(0xfff1d6))
+  strip.castShadow = false
+  g.add(strip)
+
+  ;[z0 + 0.35, z1 - 0.35].forEach((z) => {
+    const stool = group('stool')
+    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.07, 12), toon(0x8c5a3c))
+    seat.position.set(0, 0.62, 0)
+    seat.castShadow = true
+    stool.add(seat)
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8), metal)
+    post.position.set(0, 0.3, 0)
+    stool.add(post)
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 12), metal)
+    stool.add(foot)
+    stool.position.set(x0 - 0.22, IN.floor, z)
+    g.add(stool)
+  })
+
+  const bin = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.5, 10), toon(PALETTE.shelfDark))
+  bin.position.set(x0 - 0.1, IN.floor + 0.25, z0 - 0.35)
+  g.add(bin)
+
+  return g
+}
+
 /** Ice cream chest freezer near the window. */
 function freezer() {
   const g = group('freezer')
@@ -422,6 +482,7 @@ export function buildInterior(ctx) {
   g.add(gondolaShelves())
   g.add(counter(ctx))
   g.add(magazineRack())
+  g.add(eatInCounter())
   g.add(freezer())
   g.add(backOfHouse())
   return g

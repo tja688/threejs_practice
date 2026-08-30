@@ -25,7 +25,7 @@ void main() {
 
   vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
   gl_Position = projectionMatrix * mvPosition;
-  gl_PointSize = uSize * aScale * (260.0 / max(-mvPosition.z, 0.1));
+  gl_PointSize = uSize * aScale * (190.0 / max(-mvPosition.z, 0.1));
 
   // Fade in at the top of the column and out as drops reach the ground.
   vAlpha = smoothstep(0.0, 0.05, fall) * smoothstep(-1.2, 1.4, transformed.y);
@@ -85,11 +85,11 @@ export function createRain(ctx, options = {}) {
       uTime: { value: 0 },
       uTop: { value: top },
       uHeight: { value: height },
-      uSize: { value: options.size ?? 2.6 },
+      uSize: { value: options.size ?? 1.2 },
       uWind: { value: new THREE.Vector2(1.5, 0.7) },
       uTexture: { value: rainStreakTexture() },
       uColor: { value: new THREE.Color(0xbcd8f5) },
-      uOpacity: { value: options.opacity ?? 0.5 },
+      uOpacity: { value: options.opacity ?? 0.34 },
     },
     transparent: true,
     depthWrite: false,

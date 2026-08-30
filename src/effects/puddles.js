@@ -43,7 +43,7 @@ float hash21(vec2 p) {
 float ripples(vec2 p, float time) {
   float total = 0.0;
   for (int i = 0; i < 2; i++) {
-    float scale = 1.1 + float(i) * 1.7;
+    float scale = 1.7 + float(i) * 2.4;
     vec2 sp = p * scale + float(i) * 17.3;
     vec2 cell = floor(sp);
     vec2 f = fract(sp);
@@ -52,7 +52,7 @@ float ripples(vec2 p, float time) {
     float phase = fract(time * (0.45 + seed * 0.35) + seed);
     float radius = phase * 0.55;
     float d = distance(f, center);
-    float ring = exp(-pow((d - radius) * 26.0, 2.0)) * (1.0 - phase);
+    float ring = exp(-pow((d - radius) * 46.0, 2.0)) * (1.0 - phase);
     total += ring;
   }
   return total;
@@ -84,7 +84,7 @@ void main() {
   color += tint * 1.35;
 
   float ripple = ripples(vWorld.xz, uTime) * uRippleAmount;
-  color += vec3(0.55, 0.68, 0.85) * ripple * 0.5;
+  color += vec3(0.55, 0.68, 0.85) * ripple * 0.34;
 
   float alpha;
   if (uMode < 0.5) {

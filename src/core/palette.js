@@ -23,6 +23,7 @@ export const PALETTE = {
   // store
   storeWall: 0xe6ecf4,
   storeWallShade: 0xc3cddd,
+  roofDeck: 0x59637d,
   storePanel: 0xf3f7fb,
   storeTrim: 0x2f3a52,
   brandGreen: 0x3fae63,

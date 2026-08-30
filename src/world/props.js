@@ -90,14 +90,14 @@ function entranceProps() {
   const stand = group('umbrella-stand')
   stand.add(box(0.5, 0.62, 0.26, toon(PALETTE.metal), [0, 0.31, 0]))
   stand.add(box(0.52, 0.04, 0.28, toon(PALETTE.metalDark), [0, 0.62, 0]))
-  const umbrellaColors = [0x4f6fbf, 0xc75f6a, 0x8f93a8]
+  const umbrellaColors = [0x6f8ede, 0xd97682, 0xa8b0cc]
   umbrellaColors.forEach((color, i) => {
-    const shaft = cylinder(0.02, 0.02, 0.86, toon(color), 6)
-    shaft.position.set(-0.16 + i * 0.16, 0.66, 0.0)
+    const shaft = cylinder(0.032, 0.032, 0.9, toon(color), 6)
+    shaft.position.set(-0.16 + i * 0.16, 0.68, 0.0)
     shaft.rotation.z = (i - 1) * 0.09
     stand.add(shaft)
-    const cap = cylinder(0.055, 0.02, 0.14, toon(color), 8)
-    cap.position.set(-0.16 + i * 0.16 - (i - 1) * 0.05, 1.08, 0)
+    const cap = cylinder(0.085, 0.03, 0.18, toon(color), 8)
+    cap.position.set(-0.16 + i * 0.16 - (i - 1) * 0.06, 1.14, 0)
     stand.add(cap)
   })
   stand.position.set(-1.3, SIDEWALK_Y, S.maxZ + 0.3)
@@ -285,7 +285,7 @@ function overheadCables(poles) {
       const from = new THREE.Vector3(a.position.x, a.userData.topY + offset.y, a.position.z + offset.z)
       const to = new THREE.Vector3(b.position.x, b.userData.topY + offset.y, b.position.z + offset.z)
       const sag = from.distanceTo(to) * 0.06
-      g.add(tube(cableCurve(from, to, sag, 10), 0.022, material, 14))
+      g.add(tube(cableCurve(from, to, sag, 10), 0.016, material, 14))
     })
   }
   const offsets = [
@@ -489,9 +489,9 @@ function trafficLight(ctx) {
       .multiplyScalar(0.85)
   })
 
-  g.position.set(9.5, 0, 9.5)
-  g.rotation.y = Math.PI * 0.25
-  ctx.addReflection({ x: 8.0, z: 8.0, color: 0xff8a8a, strength: 0.3, radius: 2.4 })
+  g.position.set(9.5, 0, 2.2)
+  g.rotation.y = Math.PI * 0.5
+  ctx.addReflection({ x: 8.2, z: 3.0, color: 0xff8a8a, strength: 0.3, radius: 2.4 })
   return g
 }
 
@@ -629,7 +629,7 @@ export function buildProps(ctx) {
   g.add(entranceProps())
   g.add(bicycle())
   g.add(streetLamp(2.55, -5.6, Math.PI, true, ctx))
-  g.add(streetLamp(9.35, 4.6, Math.PI * 0.5, false, ctx))
+  g.add(streetLamp(9.35, -5.2, Math.PI * 0.5, false, ctx))
 
   const cornerPole = utilityPole(2.72, 2.72, { plate: true, lamp: true, rotationY: Math.PI * 1.25 })
   const southPole = utilityPole(2.72, -8.4, { transformer: false, rotationY: Math.PI })

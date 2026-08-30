@@ -31,7 +31,7 @@ controls.target.set(-0.4, 1.5, -0.3)
 controls.enableDamping = true
 controls.dampingFactor = 0.06
 controls.enablePan = false
-controls.minDistance = 9
+controls.minDistance = 12
 controls.maxDistance = 48
 controls.minPolarAngle = 0.12
 controls.maxPolarAngle = Math.PI * 0.47
@@ -82,3 +82,8 @@ function animate() {
 }
 
 renderer.setAnimationLoop(animate)
+
+if (import.meta.env.DEV) {
+  // Handy for framing shots while working on the scene; stripped from builds.
+  window.__diorama = { scene, camera, controls, renderer, world }
+}
