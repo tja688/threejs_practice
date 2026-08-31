@@ -3,21 +3,24 @@ import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js'
 import { EFFECT_LAYER } from './layers.js'
 
 /**
- * Cel pipeline that cannot wipe the scene to white.
+ * Cel outline on top of a scene that is already on the canvas.
  *
- *  1. Beauty is always drawn straight to the canvas (the thing you look at).
- *  2. A half-res normal pass feeds a transparent overlay that only darkens
- *     detected edges. If that shader/FBO fails, the diorama is still visible.
+ * The beauty pass always draws straight to the drawing buffer. A half-res
+ * normal pass then drives a transparent overlay that only writes ink on
+ * detected edges. Non-edge fragments are discarded so a blending/alpha
+ * mismatch cannot replace the diorama with black or white.
  *
- * Depth textures are intentionally unused: an incomplete depth FBO is a
- * common reason a fullscreen blit samples the default white texture.
+ * This matters because the canvas is created with `alpha: false`: writing
+ * `vec4(0,0,0,0)` without blending still stomps RGB to black. The original
+ * composite blit had the opposite failure mode — an opaque fullscreen
+ * triangle sampling Three's default 1×1 white texture.
  */
 
 const overlayVertex = /* glsl */ `
 varying vec2 vUv;
 void main() {
   vUv = uv;
-  gl_Position = vec4(position.xy, 1.0, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `
 
@@ -48,12 +51,11 @@ void main() {
 
   vec2 centered = vUv - 0.5;
   float vignette = dot(centered, centered) * uVignette;
-
-  // Premultiplied dark ink + slight vignette. Alpha 0 where there is no edge
-  // so a broken draw cannot replace the scene with white.
-  vec3 ink = uOutlineColor;
   float alpha = max(edge, vignette * 0.35);
-  gl_FragColor = vec4(ink * alpha, alpha);
+
+  if (alpha < 0.02) discard;
+
+  gl_FragColor = vec4(uOutlineColor, alpha);
 }
 `
 
@@ -97,8 +99,12 @@ export class ToonOutlinePipeline {
       depthTest: false,
       depthWrite: false,
       toneMapped: false,
-      blending: THREE.NormalBlending,
-      premultipliedAlpha: true,
+      fog: false,
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.AddEquation,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      premultipliedAlpha: false,
     })
 
     this.quad = new FullScreenQuad(this.overlayMaterial)
@@ -122,6 +128,8 @@ export class ToonOutlinePipeline {
     const { renderer, scene, camera } = this
     const previousAutoClear = renderer.autoClear
     const previousTarget = renderer.getRenderTarget()
+    const previousClear = renderer.getClearColor(new THREE.Color())
+    const previousAlpha = renderer.getClearAlpha()
 
     camera.layers.enable(EFFECT_LAYER)
     scene.overrideMaterial = null
@@ -134,6 +142,7 @@ export class ToonOutlinePipeline {
     if (!outlines) {
       renderer.autoClear = previousAutoClear
       renderer.setRenderTarget(previousTarget)
+      renderer.setClearColor(previousClear, previousAlpha)
       return
     }
 
@@ -141,6 +150,18 @@ export class ToonOutlinePipeline {
     scene.overrideMaterial = this.normalMaterial
     renderer.setClearColor(this.normalClearColor, 1)
     renderer.setRenderTarget(this.normalTarget)
+
+    const gl = renderer.getContext()
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      this.enabled = false
+      scene.overrideMaterial = null
+      camera.layers.enable(EFFECT_LAYER)
+      renderer.setRenderTarget(null)
+      renderer.autoClear = previousAutoClear
+      renderer.setClearColor(previousClear, previousAlpha)
+      return
+    }
+
     renderer.clear()
     renderer.render(scene, camera)
 
@@ -153,6 +174,7 @@ export class ToonOutlinePipeline {
 
     renderer.autoClear = previousAutoClear
     renderer.setRenderTarget(previousTarget)
+    renderer.setClearColor(previousClear, previousAlpha)
   }
 
   disableOutlines() {

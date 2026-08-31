@@ -132,5 +132,5 @@ boot().catch((error) => {
 })
 
 if (import.meta.env.DEV) {
-  window.__diorama = { scene, camera, controls, renderer, get world() { return world } }
+  window.__diorama = { scene, camera, controls, renderer, pipeline, get world() { return world } }
 }
